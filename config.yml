@@ -1,0 +1,24 @@
+defaults:
+  # TODO: Put this in user-config
+  workerGroups:
+    - name: gcp-worker-test
+      instances: 2
+      image: taskcluster-generic-worker-debian-9-1534492793
+      zones:
+        - us-east1-b
+
+  taskcluster:
+    rootUrl:          !env TASKCLUSTER_ROOT_URL
+    credentials:
+      clientId:       !env TASKCLUSTER_CLIENT_ID
+      accessToken:    !env TASKCLUSTER_ACCESS_TOKEN
+
+  monitoring:
+    project: !env MONITORING_PROJECT
+    enable: !env:bool MONITORING_ENABLE
+
+  server:
+    port:             !env:number PORT
+    env:              !env NODE_ENV
+    forceSSL:         !env:bool FORCE_SSL
+    trustProxy:       !env:bool TRUST_PROXY
