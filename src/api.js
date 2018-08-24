@@ -50,6 +50,8 @@ builder.declare({
     throw new Error('TODO error');
   }
 
+  // TODO: Store instance id and don't allow giving creds to same instance twice!
+
   const workertype = result[1];
 
   // TODO: use the contents of the token to verify instance is in
