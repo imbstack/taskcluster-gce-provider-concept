@@ -29,13 +29,12 @@ const load = loader({
     setup: ({cfg}) => new google.auth.OAuth2(),
   },
 
-  creategroups: {
+  createTypes: {
     requires: ['cfg'],
     setup: async ({cfg}) => {
       // TODO: This is a temporary thing to create workergroups on
       // startup from configuration directly!
 
-      // FIRST SET GCLOUD_PROJECT and GOOGLE_APPLICATION_CREDENTIALS // In prod this will come from machine directly
       const auth = await google.auth.getClient({
         scopes: [
           'https://www.googleapis.com/auth/compute',
@@ -43,7 +42,7 @@ const load = loader({
           'https://www.googleapis.com/auth/cloud-platform'
         ],
       });
-      const project = 'bstack-cluster'; // TODO: get this from config
+      const project = cfg.app.project;
       const compute = google.compute('v1');
       const iam = google.iam('v1');
       const crm = google.cloudresourcemanager('v1');
@@ -53,15 +52,15 @@ const load = loader({
         name: `projects/${project}`,
       })).data.accounts;
 
-      await Promise.all(cfg.workerGroups.map(async group => {
+      await Promise.all(cfg.workerTypes.map(async type => {
         // Check that the image exists
         await compute.images.get({
           auth,
           project,
-          image: group.image,
+          image: type.image,
         });
 
-        const accountName = `workergroup-${group.name}`;
+        const accountName = `workertype-${type.name}`;
         const accountEmail = `${accountName}@${project}.iam.gserviceaccount.com`;
         let account;
 
@@ -85,7 +84,7 @@ const load = loader({
 
         }
 
-        const roleId = `workergroup.${group.name.replace(/-/g, '_')}`;
+        const roleId = `workertype.${type.name.replace(/-/g, '_')}`;
         let role;
 
         try {
@@ -138,7 +137,9 @@ const load = loader({
         });
 
         // TODO: Make this clean up old templates somehow?
-        const templateName = `${group.name}-${slugid.nice().toLowerCase().replace(/_/, '-')}`;
+        // ALSO TODO: Consider just serving this directly and pointing the instance group template
+        // at it via a url
+        const templateName = `${type.name}-${slugid.nice().toLowerCase().replace(/_/, '-')}`;
         let template;
         try {
           template = (await compute.instanceTemplates.get({
@@ -150,6 +151,7 @@ const load = loader({
           if (err.code !== 404) {
             throw err;
           }
+          // TODO: Get most of this from config
           template = (await compute.instanceTemplates.insert({
             auth,
             project,
@@ -177,22 +179,12 @@ const load = loader({
                     {
                       key: 'config',
                       value: JSON.stringify({
-                        provisionerId: 'gcp-worker-test',
-                        workerType: 'gcp-worker-test',
-                        workerGroup: 'gcp-worker-test',
-                        credentialUrl: '...',
-                        audience: '...',
-                        configMap: {
-                          authBaseUrl: 'https://taskcluster-staging.net/api/auth/v1',
-                          queueBaseUrl: 'https://taskcluster-staging.net/api/queue/v1',
-                          signingKeyLocation: '/home/taskcluster/signing.key',
-                          livelogSecret: 'foobar',
-                          cachesDir: '/home/taskcluster/caches',
-                          disableReboots: true,
-                          shutdownMachineOnIdle: false,
-                          shutdownMachineOnInternalError: false,
-                          tasksDir: '/home/taskcluster'
-                        },
+                        provisionerId: cfg.app.provisionerId,
+                        workerType: type.workerTyp,
+                        workerGroup: type.workerGroup,
+                        credentialUrl: cfg.app.credentialUrl,
+                        audience: cfg.app.audience,
+                        configMap: type.configMap,
                       }),
                     },
                   ],
@@ -204,8 +196,8 @@ const load = loader({
                     mode: 'READ_WRITE',
                     autoDelete: true,
                     initializeParams: {
-                      sourceImage: `global/images/${group.image}`,
-                      diskSizeGb: 32, // TODO: configurable
+                      sourceImage: `global/images/${type.image}`,
+                      diskSizeGb: type.diskSizeGb,
                     },
                   },
                 ],
@@ -214,22 +206,20 @@ const load = loader({
           })).data;
         }
 
-        await Promise.all(group.zones.map(async zone => {
+        await Promise.all(type.zones.map(async zone => {
           // TODO: Do not create if already exists
           // TODO: Add requestId to insert
-          let manager;
-          manager = (await compute.instanceGroupManagers.insert({
+          await compute.instanceGroupManagers.insert({
             auth,
             project,
             zone,
             requestBody: {
-              name: `${group.name}-${zone}`,
+              name: `${type.name}-${zone}`,
               instanceTemplate: template.selfLink,
-              baseInstanceName: group.name,
-              targetSize: group.instances,
+              baseInstanceName: type.name,
+              targetSize: type.instances,
             },
-          })).data;
-          console.log(manager);
+          });
         }));
       }));
     },
@@ -264,6 +254,9 @@ const load = loader({
       context: {
         oauthclient,
         credentials: cfg.taskcluster.credentials,
+        audience: cfg.app.audience,
+        project: cfg.app.project,
+        provisionerId: cfg.app.provisionerId,
       },
     }),
   },

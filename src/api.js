@@ -5,12 +5,15 @@ const jwt = require('jsonwebtoken');
 
 const builder = new APIBuilder({
   title: 'GCE Provider Test',
-  serviceName: 'gce-provider-test',
+  serviceName: 'gce-provider',
   version: 'v1',
   description: 'TODO',
   context: [
     'oauthclient',
     'credentials',
+    'audience',
+    'project',
+    'provisionerId',
   ],
 });
 
@@ -25,7 +28,7 @@ builder.declare({
 }, async function(req, res) {
   const ticket = await this.oauthclient.verifyIdToken({
     idToken: req.body.token,
-    audience: 'taskclustertestsecret',
+    audience: this.audience,
   });
   console.log(ticket);
   // TODO: Make sure that this throws an error when the token is bad
@@ -34,6 +37,12 @@ builder.declare({
   const body = jwt.decode(req.body.token);
   console.log(body);
 
+  const project = body.google.compute_engine.project_id;
+
+  if (project !== this.project) {
+    throw new Error(`Project is incorrect: ${project}`);
+  }
+
   const re = /^workergroup-([a-zA-Z0-9-_]+)@[a-zA-Z0-9-_]+\.iam\.gserviceaccount\.com$/;
 
   const result = re.exec(body.email);
@@ -41,19 +50,18 @@ builder.declare({
     throw new Error('TODO error');
   }
 
-  // TODO: Asser that this is from our project this is managing!
-
-  const workergroup = result[1];
+  const workertype = result[1];
 
   // TODO: use the contents of the token to verify instance is in
-  // a group this has created
+  // a group this has created. _or_ when setting up service accounts make sure that only this
+  // service can manage them
   const creds = taskcluster.createTemporaryCredentials({
-    clientId: `worker/gce/${body.google.compute_engine.project_id}/${body.google.compute_engine.instance_id}`,
+    clientId: `worker/gce/${project}/${body.google.compute_engine.instance_id}`,
     scopes: [
-      `assume:worker-type:gcp-worker-test/${workergroup}`, // TODO: configure provisioner
+      `assume:worker-type:${this.provisionerId}/${workertype}`,
       'assume:worker-id:*',
     ],
-    start: taskcluster.fromNow('-10 hours'), // TODO: remove this. it is for weird skew
+    start: taskcluster.fromNow('-1 hours'), // TODO: remove this. it is for weird skew
     expiry: taskcluster.fromNow('24 hours'),
     credentials: this.credentials,
   });
