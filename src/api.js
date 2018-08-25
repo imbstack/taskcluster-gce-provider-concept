@@ -52,7 +52,7 @@ builder.declare({
 
   // TODO: Store instance id and don't allow giving creds to same instance twice!
 
-  const workertype = result[1];
+  const workerType = result[1];
 
   // TODO: use the contents of the token to verify instance is in
   // a group this has created. _or_ when setting up service accounts make sure that only this
@@ -60,8 +60,8 @@ builder.declare({
   const creds = taskcluster.createTemporaryCredentials({
     clientId: `worker/gce/${project}/${body.google.compute_engine.instance_id}`,
     scopes: [
-      `queue:claim-work:${this.provisionerId}/${workerType}`
-      `assume:worker-type:${this.provisionerId}/${workertype}`,
+      `queue:claim-work:${this.provisionerId}/${workerType}`,
+      `assume:worker-type:${this.provisionerId}/${workerType}`,
       `queue:worker-id:${workerType}/${body.google.compute_engine.instance_id}`, // TODO: This should be workergroup stuff?
       'assume:worker-id:*',
     ],
