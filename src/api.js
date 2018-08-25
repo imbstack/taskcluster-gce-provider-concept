@@ -60,7 +60,9 @@ builder.declare({
   const creds = taskcluster.createTemporaryCredentials({
     clientId: `worker/gce/${project}/${body.google.compute_engine.instance_id}`,
     scopes: [
+      `queue:claim-work:${this.provisionerId}/${workerType}`
       `assume:worker-type:${this.provisionerId}/${workertype}`,
+      `queue:worker-id:${workerType}/${body.google.compute_engine.instance_id}`, // TODO: This should be workergroup stuff?
       'assume:worker-id:*',
     ],
     start: taskcluster.fromNow('-1 hours'), // TODO: remove this. it is for weird skew
