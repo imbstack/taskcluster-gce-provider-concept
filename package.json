@@ -14,7 +14,6 @@
     "googleapis": "^32.0.0",
     "jsonwebtoken": "^8.3.0",
     "lodash": "^4.11.1",
-    "slugid": "^2.0.0",
     "taskcluster-client": "^11.0.1",
     "taskcluster-lib-api": "^12.3.0",
     "taskcluster-lib-app": "^10.0.0",

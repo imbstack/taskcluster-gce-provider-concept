@@ -1,4 +1,3 @@
-const slugid = require('slugid');
 const {google} = require('googleapis');
 const debug = require('debug')('gce-provider');
 const App = require('taskcluster-lib-app');
@@ -8,6 +7,12 @@ const SchemaSet = require('taskcluster-lib-validate');
 const config = require('typed-env-config');
 const _ = require('lodash');
 const builder = require('./api');
+
+const sleep = function(delay) {
+  return new Promise(function(accept) {
+    setTimeout(accept, delay);
+  });
+};
 
 // Create component loader
 const load = loader({
@@ -47,12 +52,7 @@ const load = loader({
       const iam = google.iam('v1');
       const crm = google.cloudresourcemanager('v1');
 
-      let serviceAccounts = (await iam.projects.serviceAccounts.list({
-        auth,
-        name: `projects/${project}`,
-      })).data.accounts;
-
-      await Promise.all(cfg.workerTypes.map(async type => {
+      await Promise.all(cfg.app.workerTypes.map(async type => {
         // Check that the image exists
         await compute.images.get({
           auth,
@@ -64,13 +64,15 @@ const load = loader({
         const accountEmail = `${accountName}@${project}.iam.gserviceaccount.com`;
         let account;
 
-        serviceAccounts.forEach(acc => {
-          if (acc.email === accountEmail) {
-            account = acc;
+        try {
+          account = (await iam.projects.serviceAccounts.get({
+            auth,
+            name: `projects/${project}/serviceAccounts/${accountEmail}`,
+          })).data;
+        } catch (err) {
+          if (err.code !== 404) {
+            throw err;
           }
-        });
-
-        if (!account) {
           account = (await iam.projects.serviceAccounts.create({
             auth,
             name: `projects/${project}`,
@@ -81,7 +83,6 @@ const load = loader({
               },
             },
           })).data;
-
         }
 
         const roleId = `workertype.${type.name.replace(/-/g, '_')}`;
@@ -139,20 +140,20 @@ const load = loader({
         // TODO: Make this clean up old templates somehow?
         // ALSO TODO: Consider just serving this directly and pointing the instance group template
         // at it via a url
-        const templateName = `${type.name}-${slugid.nice().toLowerCase().replace(/_/, '-')}`;
-        let template;
+        const templateName = `${type.name}-${type.version}`; // Bump version when you change any inputs or this template
+        let templateLink;
         try {
-          template = (await compute.instanceTemplates.get({
+          templateLink = (await compute.instanceTemplates.get({
             auth,
             project,
             instanceTemplate: templateName,
-          })).data;
+          })).data.selfLink;
         } catch (err) {
           if (err.code !== 404) {
             throw err;
           }
           // TODO: Get most of this from config
-          template = (await compute.instanceTemplates.insert({
+          let operation = (await compute.instanceTemplates.insert({
             auth,
             project,
             requestBody: {
@@ -180,7 +181,7 @@ const load = loader({
                       key: 'config',
                       value: JSON.stringify({
                         provisionerId: cfg.app.provisionerId,
-                        workerType: type.workerTyp,
+                        workerType: type.name,
                         workerGroup: type.workerGroup,
                         credentialUrl: cfg.app.credentialUrl,
                         audience: cfg.app.audience,
@@ -204,22 +205,56 @@ const load = loader({
               },
             },
           })).data;
+
+          for (let i = 0; i < 10; i++) {
+            debug('polling for template creation');
+            operation = (await compute.globalOperations.get({
+              auth,
+              project,
+              operation: operation.name,
+            })).data;
+            if (operation.status === 'DONE') {
+              templateLink = operation.targetLink;
+              break;
+            }
+            await sleep(2000);
+          }
+        }
+
+        if (!templateLink) {
+          throw new Error(`template ${templateName} never finished being created!`);
         }
 
         await Promise.all(type.zones.map(async zone => {
-          // TODO: Do not create if already exists
           // TODO: Add requestId to insert
-          await compute.instanceGroupManagers.insert({
-            auth,
-            project,
-            zone,
-            requestBody: {
-              name: `${type.name}-${zone}`,
-              instanceTemplate: template.selfLink,
-              baseInstanceName: type.name,
-              targetSize: type.instances,
-            },
-          });
+          const groupName = `${type.name}-${zone}`;
+          let group;
+          try {
+            group = (await compute.instanceGroupManagers.get({
+              auth,
+              project,
+              zone,
+              instanceGroupManager: groupName,
+            })).data;
+            // TODO: Update if something changed
+          } catch (err) {
+            if (err.code !== 404) {
+              throw err;
+            }
+            let operation = (await compute.instanceGroupManagers.insert({
+              auth,
+              project,
+              zone,
+              requestBody: {
+                name: groupName,
+                instanceTemplate: templateLink,
+                baseInstanceName: type.name,
+                targetSize: type.instances,
+              },
+            })).data;
+            // TODO: Poll this operation, assign group when done and also throw
+            //       an error if we encounter an error during the operation
+          }
         }));
       }));
     },

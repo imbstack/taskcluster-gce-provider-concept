@@ -43,7 +43,7 @@ builder.declare({
     throw new Error(`Project is incorrect: ${project}`);
   }
 
-  const re = /^workergroup-([a-zA-Z0-9-_]+)@[a-zA-Z0-9-_]+\.iam\.gserviceaccount\.com$/;
+  const re = /^workertype-([a-zA-Z0-9-_]+)@[a-zA-Z0-9-_]+\.iam\.gserviceaccount\.com$/;
 
   const result = re.exec(body.email);
   if (!result) {
