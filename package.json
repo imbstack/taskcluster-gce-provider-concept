@@ -15,11 +15,11 @@
     "jsonwebtoken": "^8.3.0",
     "lodash": "^4.11.1",
     "taskcluster-client": "^11.0.1",
-    "taskcluster-lib-api": "^12.3.0",
+    "taskcluster-lib-api": "^12.6.0",
     "taskcluster-lib-app": "^10.0.0",
     "taskcluster-lib-docs": "^10.0.1",
     "taskcluster-lib-loader": "^10.0.1",
-    "taskcluster-lib-validate": "^11.0.2",
+    "taskcluster-lib-validate": "^12.0.0",
     "typed-env-config": "^2.0.0"
   },
   "engine-strict": true,
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "eslint": "^5.9.0",
-    "eslint-config-taskcluster": "^3.2.0"
+    "eslint-config-taskcluster": "^3.2.0",
+    "mocha": "^5.2.0"
   }
 }

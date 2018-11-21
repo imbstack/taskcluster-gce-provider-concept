@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const builder = new APIBuilder({
   title: 'GCE Provider Test',
   serviceName: 'gce-provider',
-  version: 'v1',
+  apiVersion: 'v1',
   description: 'TODO',
   context: [
     'oauthclient',
