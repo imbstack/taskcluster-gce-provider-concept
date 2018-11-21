@@ -7,7 +7,7 @@
   "scripts": {
     "heroku-prebuild": "echo $SOURCE_VERSION > .git-version",
     "test": "mocha test/*_test.js",
-    "lint": "eslint src/*.js test/*.js",
+    "lint": "eslint src/*.js",
     "pretest": "yarn lint"
   },
   "dependencies": {
@@ -26,5 +26,9 @@
   "engines": {
     "node": "^10.0.0",
     "yarn": "^1.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^5.9.0",
+    "eslint-config-taskcluster": "^3.2.0"
   }
 }

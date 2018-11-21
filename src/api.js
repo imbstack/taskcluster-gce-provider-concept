@@ -62,8 +62,9 @@ builder.declare({
     scopes: [
       `queue:claim-work:${this.provisionerId}/${workerType}`,
       `assume:worker-type:${this.provisionerId}/${workerType}`,
-      `queue:worker-id:${workerType}/${body.google.compute_engine.instance_id}`, // TODO: This should be workergroup stuff?
       'assume:worker-id:*',
+      // TODO: This should be workergroup stuff?
+      `queue:worker-id:${workerType}/${body.google.compute_engine.instance_id}`,
     ],
     start: taskcluster.fromNow('-1 hours'), // TODO: remove this. it is for weird skew
     expiry: taskcluster.fromNow('24 hours'),

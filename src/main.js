@@ -44,7 +44,7 @@ const load = loader({
         scopes: [
           'https://www.googleapis.com/auth/compute',
           'https://www.googleapis.com/auth/iam',
-          'https://www.googleapis.com/auth/cloud-platform'
+          'https://www.googleapis.com/auth/cloud-platform',
         ],
       });
       const project = cfg.app.project;
@@ -120,12 +120,12 @@ const load = loader({
         });
 
         policy.bindings.push({
-          role: `roles/logging.logWriter`,
+          role: 'roles/logging.logWriter',
           members: [`serviceAccount:${account.email}`],
         });
 
         policy.bindings.push({
-          role: `roles/monitoring.metricWriter`,
+          role: 'roles/monitoring.metricWriter',
           members: [`serviceAccount:${account.email}`],
         });
 
@@ -162,7 +162,7 @@ const load = loader({
                 serviceAccounts: [
                   {
                     email: account.email,
-                  }
+                  },
                 ],
                 scheduling: {
                   preemptible: true,
